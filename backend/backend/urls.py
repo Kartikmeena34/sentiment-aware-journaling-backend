@@ -29,5 +29,7 @@ urlpatterns = [
 
     # JOURNAL
     path("api/journal/", include("journals.urls")),
+    path("ui/", include("ui.urls")),
+    path("api/auth/", include("rest_framework.urls")),
 ]
 

@@ -1,0 +1,17 @@
+{% extends "ui/base.html" %}
+{% block content %}
+
+<h1>Create Account</h1>
+
+<form method="post">
+  {% csrf_token %}
+  <input name="username" placeholder="Username" required>
+  <input name="password" type="password" placeholder="Password" required>
+  <button type="submit">Register</button>
+</form>
+
+<div class="link">
+  Already have an account? <a href="{% url 'login' %}">Login</a>
+</div>
+
+{% endblock %}
