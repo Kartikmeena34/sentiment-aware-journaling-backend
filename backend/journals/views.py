@@ -3,15 +3,21 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from .models import JournalEntry
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
+
 
 FASTAPI_URL = "http://127.0.0.1:8001/predict"
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
+
+
 def create_journal(request):
     text = request.data.get("text")
 
-    # TEMP: use first user for testing
-    user = User.objects.first()
+    user = request.user
+
 
     entry = JournalEntry.objects.create(
         user=user,
