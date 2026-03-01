@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import create_journal
-from .auth_views import register
+from .views import UserAnalyticsView, create_journal
+
 
 urlpatterns = [
      path("create/", create_journal),
-     path("register/", register),
+     path("analytics/",UserAnalyticsView.as_view()),
 ]

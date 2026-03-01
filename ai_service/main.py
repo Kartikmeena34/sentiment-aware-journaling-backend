@@ -4,9 +4,9 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 import torch.nn.functional as F
 
-app = FastAPI(title="Emotion Detection Service")
+app = FastAPI(title="GoEmotions Multi-Label Service")
 
-MODEL_NAME = "bhadresh-savani/distilbert-base-uncased-emotion"
+MODEL_NAME = MODEL_NAME = "monologg/bert-base-cased-goemotions-original"  # multi-label
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
@@ -17,7 +17,7 @@ class JournalInput(BaseModel):
     text: str
 
 @app.post("/predict")
-def predict_emotion(data: JournalInput):
+def predict_emotions(data: JournalInput):
     inputs = tokenizer(
         data.text,
         return_tensors="pt",
@@ -28,15 +28,15 @@ def predict_emotion(data: JournalInput):
 
     with torch.no_grad():
         outputs = model(**inputs)
-        probs = F.softmax(outputs.logits, dim=1)
+        logits = outputs.logits
+        probs = torch.sigmoid(logits)[0]  # 🔥 sigmoid, not softmax
 
-    scores = probs[0].tolist()
     labels = model.config.id2label
 
     emotions = {
-        labels[i]: round(scores[i], 4)
-        for i in range(len(scores))
-        if scores[i] > 0.05
+        labels[i]: round(probs[i].item(), 4)
+        for i in range(len(probs))
+        if probs[i] > 0.02   # threshold (tunable)
     }
 
     return emotions
