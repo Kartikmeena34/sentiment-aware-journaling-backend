@@ -1,29 +1,81 @@
 def generate_insight(analytics):
-    distribution = analytics["weekly_distribution"]
-    stability = analytics["stability_score"]
-    trend = analytics["trends"]
+    weekly_confidence = analytics.get("weekly_confidence", 0.0)
+    distribution = analytics.get("weekly_distribution", {})
+    entropy = analytics.get("emotional_entropy")
+    trends = analytics.get("trends", {})
+    sufficient = analytics.get("data_sufficiency", False)
+
+    if not sufficient:
+        return "Keep journaling to see clearer emotional patterns."
 
     if not distribution:
-        return "Keep journaling to build emotional insights."
+        return "Your entries this week did not contain enough emotional signal."
 
     dominant = max(distribution, key=distribution.get)
+    dominant_score = distribution[dominant]
 
-    # Stability-based insight
-    if stability > 0.8:
-        stability_msg = "Your emotions have been relatively consistent."
-    elif stability < 0.3:
-        stability_msg = "Your emotions have been fluctuating frequently."
+
+    uncertainty_prefix = ""
+
+    if weekly_confidence < 0.5:
+        uncertainty_prefix = "Your entries may suggest that "
+    elif weekly_confidence < 0.65:
+        uncertainty_prefix = "It seems that "
+
+    # -----------------------------
+    # Conservative Dominance Framing
+    # -----------------------------
+    dominance_msg = ""
+
+    if dominant_score > 0.65:
+        dominance_msg = (
+            f"{uncertainty_prefix}{dominant.capitalize().lower()} was strongly present..."
+        )
+    elif 0.45 <= dominant_score <= 0.65:
+        dominance_msg = (
+            f"{uncertainty_prefix}{dominant.capitalize().lower()} showed up more often than other emotions this week."
+        )
+    elif 0.30 <= dominant_score < 0.45:
+        dominance_msg = (
+            f"{uncertainty_prefix}{dominant.capitalize().lower()} appeared slightly more frequently this week."
+        )
     else:
-        stability_msg = "Your emotional pattern shows moderate variation."
+        # Weak dominance → don't highlight it
+        dominance_msg = ""
 
-    # Trend-based insight
+    # -----------------------------
+    # Entropy-Based Range Framing
+    # -----------------------------
+    range_msg = ""
+
+    if entropy is not None:
+        if entropy >= 2.0:
+            range_msg = "It looks like you experienced a wide range of emotions this week."
+        elif 1.0 <= entropy < 2.0:
+            range_msg = "Several emotions appeared throughout your entries this week."
+        # For low entropy, dominance message already handles it.
+
+    # -----------------------------
+    # Trend Framing
+    # -----------------------------
     trend_msgs = []
-    for emotion, direction in trend.items():
+
+    for emotion, direction in trends.items():
         if direction == "increasing":
-            trend_msgs.append(f"{emotion.capitalize()} appears to be increasing.")
+            trend_msgs.append(
+                f"{emotion.capitalize()} appears to be increasing."
+            )
         elif direction == "decreasing":
-            trend_msgs.append(f"{emotion.capitalize()} seems to be decreasing.")
+            trend_msgs.append(
+                f"{emotion.capitalize()} seems to be decreasing."
+            )
 
     trend_msg = " ".join(trend_msgs)
 
-    return f"This week, {dominant} has been most frequent. {stability_msg} {trend_msg}"
+    # -----------------------------
+    # Combine Carefully
+    # -----------------------------
+    parts = [dominance_msg, range_msg, trend_msg]
+    final_message = " ".join(part for part in parts if part).strip()
+
+    return final_message

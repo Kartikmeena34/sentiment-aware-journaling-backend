@@ -1,6 +1,3 @@
-from django.test import TestCase
-
-# Create your tests here.
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from unittest.mock import patch
@@ -116,6 +113,7 @@ class FullBackendIntegrationTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("journal_id", response.data)
         self.assertIn("analytics", response.data)
+        self.assertIn("confidence", response.data)
 
     # -----------------------------
     # ANALYTICS STRUCTURE TEST
@@ -144,16 +142,20 @@ class FullBackendIntegrationTest(APITestCase):
             HTTP_AUTHORIZATION=f"Bearer {access_token}"
         )
 
-        # create one journal entry
-        self.client.post(
-            "/api/journal/create/",
-            {"text": "Testing analytics"},
-            format="json"
-        )
+        # Create multiple entries to exceed threshold
+        for _ in range(4):
+            self.client.post(
+                "/api/journal/create/",
+                {"text": "Testing analytics"},
+                format="json"
+            )
 
         response = self.client.get("/api/journal/analytics/")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("weekly_distribution", response.data)
-        self.assertIn("stability_score", response.data)
+        self.assertIn("emotional_entropy", response.data)
         self.assertIn("trends", response.data)
+        self.assertIn("data_sufficiency", response.data)
+        self.assertIn("weekly_confidence", response.data)
+        self.assertTrue(response.data["data_sufficiency"])

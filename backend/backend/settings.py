@@ -27,7 +27,7 @@ SECRET_KEY = '4ldVLEGCqOSXRb7__C3NCoZPF35xoG8RbvjwcNhPUEiTfBlQlhf_XcqdEBmdDAiPvV
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*", ".ngrok-free.app"]
+ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.app",

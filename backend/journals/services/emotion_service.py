@@ -1,6 +1,5 @@
 import requests
 
-import requests
 
 AI_URL = "http://localhost:8001/predict"
 

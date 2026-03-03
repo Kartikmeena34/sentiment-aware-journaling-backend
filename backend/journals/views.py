@@ -1,6 +1,5 @@
 # journals/views.py
 
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -12,11 +11,10 @@ from .services.emotion_service import detect_emotion
 from .services.analytics_service import compute_user_analytics
 from .services.pet_service import get_pet_state
 from .services.insight_service import generate_insight
+
 import logging
 logger = logging.getLogger(__name__)
 
-
-#Create Journal Entry
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -32,42 +30,39 @@ def create_journal(request):
     if len(text) > 2000:
         raise ValidationError("Text exceeds 2000 characters")
 
-    # Detect emotion
-    try:
-        emotion_data = detect_emotion(text)
-    except Exception as e:
-        logger.error(f"Emotion detection failed for user {request.user.username}: {str(e)}")
-        emotion_data = {
-            "dominant_emotion": "unknown",
-            "confidence": 0.0,
-            "raw": {}
-        }
-
-    # Save journal
+    # Save journal immediately
     journal = Journal.objects.create(
         user=request.user,
-        text=text,
-        emotion_data=emotion_data["raw"],
-        dominant_emotion=emotion_data["dominant_emotion"]
+        text=text
     )
 
-    logger.info(f"Journal {journal.id} saved for user {request.user.username}")
+    logger.info(f"Journal {journal.id} saved (initial save)")
 
-    # Compute analytics
+    # Attempt emotion detection
+    try:
+        emotion_data = detect_emotion(text)
+
+        journal.emotion_data = emotion_data["raw"]
+        journal.dominant_emotion = emotion_data["dominant_emotion"]
+        journal.confidence = emotion_data["confidence"]
+        journal.save()
+
+    except Exception as e:
+        logger.error(f"Emotion detection failed for journal {journal.id}: {str(e)}")
+
     analytics = compute_user_analytics(request.user)
-
-    pet = get_pet_state(analytics["weekly_distribution"])
+    pet = get_pet_state(analytics.get("weekly_distribution", {}))
     insight = generate_insight(analytics)
 
     return Response({
         "journal_id": journal.id,
-        "dominant_emotion": emotion_data["dominant_emotion"],
-        "confidence": emotion_data["confidence"],
+        "dominant_emotion": journal.dominant_emotion,
+        "confidence": journal.confidence,
         "analytics": analytics,
         "pet": pet,
         "insight": insight
     })
-#User Analytics Endpoint
+
 
 class UserAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -76,4 +71,25 @@ class UserAnalyticsView(APIView):
         logger.info(f"Analytics requested by user {request.user.username}")
         analytics = compute_user_analytics(request.user)
         return Response(analytics)
-        
+    
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def journal_history(request):
+    journals = (
+        Journal.objects
+        .filter(user=request.user)
+        .order_by("-created_at")
+    )
+
+    data = [
+        {
+            "id": j.id,
+            "text": j.text,
+            "dominant_emotion": j.dominant_emotion,
+            "confidence": j.confidence,
+            "created_at": j.created_at,
+        }
+        for j in journals
+    ]
+
+    return Response(data)
