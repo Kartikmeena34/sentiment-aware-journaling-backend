@@ -10,7 +10,7 @@ from .models import Journal
 from .services.emotion_service import detect_emotion
 from .services.analytics_service import compute_user_analytics
 from .services.pet_service import get_pet_state
-from .services.insight_service import generate_insight
+from .services.insight_service import generate_insight, generate_multiple_insights
 
 import logging
 logger = logging.getLogger(__name__)
@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_journal(request):
-
+    """
+    Create a new journal entry with emotion detection.
+    Returns minimal response - no longer includes full analytics/insights.
+    """
     logger.info(f"Journal request received from user {request.user.username}")
 
     text = request.data.get("text")
@@ -47,34 +50,85 @@ def create_journal(request):
         journal.confidence = emotion_data["confidence"]
         journal.save()
 
+        logger.info(f"Emotion detected for journal {journal.id}: {journal.dominant_emotion}")
+
     except Exception as e:
         logger.error(f"Emotion detection failed for journal {journal.id}: {str(e)}")
+        # Continue without emotion data - journal is already saved
 
+    # NEW: Compute quick analytics for contextual feedback
     analytics = compute_user_analytics(request.user)
-    pet = get_pet_state(analytics.get("weekly_distribution", {}))
-    insight = generate_insight(analytics)
-
+    
+    # Generate a single contextual message (optional - can be removed)
+    contextual_message = None
+    if analytics.get("data_sufficiency"):
+        baseline_shifts = analytics.get("baseline_shifts", {})
+        if baseline_shifts:
+            # Quick deviation check
+            contextual_message = "This entry feels different from your recent ones."
+        elif analytics.get("emotional_entropy", 0) >= 2.0:
+            contextual_message = "You expressed a lot of different feelings today."
+    
     return Response({
         "journal_id": journal.id,
         "dominant_emotion": journal.dominant_emotion,
         "confidence": journal.confidence,
-        "analytics": analytics,
-        "pet": pet,
-        "insight": insight
+        "contextual_message": contextual_message,  # NEW: Simple one-liner
+        "has_insights": analytics.get("data_sufficiency", False)  # NEW: Tell user if insights are ready
     })
 
 
 class UserAnalyticsView(APIView):
+    """
+    Get comprehensive analytics data (used by Trends screen).
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         logger.info(f"Analytics requested by user {request.user.username}")
         analytics = compute_user_analytics(request.user)
         return Response(analytics)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_insights(request):
+    """
+    NEW ENDPOINT: Get interpreted insights (used by Insights screen).
+    Returns human-readable insights based on analytics.
+    """
+    logger.info(f"Insights requested by user {request.user.username}")
     
+    # Compute analytics
+    analytics = compute_user_analytics(request.user)
+    
+    # Get query parameter to determine response format
+    format_type = request.query_params.get("format", "multiple")  # "single" or "multiple"
+    
+    if format_type == "single":
+        # Single comprehensive insight
+        insight = generate_insight(analytics)
+        return Response({
+            "insight": insight,
+            "data_sufficiency": analytics.get("data_sufficiency", False),
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
+        })
+    else:
+        # Multiple insights for card-based UI
+        insights = generate_multiple_insights(analytics)
+        return Response({
+            "insights": insights,
+            "data_sufficiency": analytics.get("data_sufficiency", False),
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
+        })
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def journal_history(request):
+    """
+    Get user's journal history (used by History screen).
+    """
     journals = (
         Journal.objects
         .filter(user=request.user)
