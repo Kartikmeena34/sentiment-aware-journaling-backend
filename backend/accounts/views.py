@@ -1,39 +1,103 @@
-from django.contrib.auth.models import User
-from rest_framework.decorators import api_view
+# accounts/views.py
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-
-from rest_framework.permissions import AllowAny
-from rest_framework.decorators import api_view, permission_classes
+from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
-@api_view(["POST"])
+User = get_user_model()
+
+@api_view(['POST'])
 @permission_classes([AllowAny])
-def register(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
+def register_user(request):
+    """Register a new user and return JWT tokens"""
+    try:
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
 
-    if not username or not password:
-        return Response(
-            {"error": "username and password required"},
-            status=status.HTTP_400_BAD_REQUEST,
+        # Validation
+        if not username or not email or not password:
+            return Response(
+                {'message': 'All fields are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user exists
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {'username': ['Username already exists']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {'email': ['Email already exists']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create user
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password
         )
 
-    if User.objects.filter(username=username).exists():
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'message': 'User registered successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+            },
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
         return Response(
-            {"error": "username already exists"},
-            status=status.HTTP_400_BAD_REQUEST,
+            {'message': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    user = User.objects.create_user(
-        username=username,
-        password=password
-    )
-    refresh = RefreshToken.for_user(user)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_user(request):
+    """Login user and return JWT tokens"""
+    try:
+        username = request.data.get('username')
+        password = request.data.get('password')
 
-    return Response({
-        'message': 'user created',
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
-    }, status=status.HTTP_201_CREATED)
+        # Authenticate
+        user = authenticate(username=username, password=password)
+
+        if user is None:
+            return Response(
+                {'message': 'Invalid username or password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'message': 'Login successful',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+            },
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {'message': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
