@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 app = FastAPI(title="GoEmotions Multi-Label Service")
 
-MODEL_NAME = MODEL_NAME = "monologg/bert-base-cased-goemotions-original"  # multi-label
+MODEL_NAME ="monologg/bert-base-cased-goemotions-original"  # multi-label
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
@@ -36,7 +36,7 @@ def predict_emotions(data: JournalInput):
     emotions = {
         labels[i]: round(probs[i].item(), 4)
         for i in range(len(probs))
-        if probs[i] > 0.02   # threshold (tunable)
+        if probs[i] > 0.2   # threshold (tunable)
     }
 
     return emotions

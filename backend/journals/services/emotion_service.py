@@ -1,12 +1,29 @@
 import requests
+import os
+
+HF_API_URL = "https://api-inference.huggingface.co/models/monologg/bert-base-cased-goemotions-original"
+
+headers = {
+    "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"
+}
 
 
-AI_URL = "http://localhost:8001/predict"
+def predict_emotions(text):
+    payload = {"inputs": text}
+
+    response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=20)
+    response.raise_for_status()
+
+    data = response.json()
+
+    # Convert HF output list -> dictionary
+    emotion_scores = {item["label"]: item["score"] for item in data}
+
+    return emotion_scores
+
 
 def detect_emotion(text):
-    resp = requests.post(AI_URL, json={"text": text}, timeout=5)
-    resp.raise_for_status()
-    result = resp.json()
+    result = predict_emotions(text)
 
     if not result:
         raise ValueError("Empty prediction result")
