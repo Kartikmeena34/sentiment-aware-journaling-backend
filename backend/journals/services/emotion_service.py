@@ -17,6 +17,9 @@ def predict_emotions(text):
     data = response.json()
 
     # Convert HF output list -> dictionary
+    if isinstance(data, list) and isinstance(data[0], list):
+        data = data[0]
+
     emotion_scores = {item["label"]: item["score"] for item in data}
 
     return emotion_scores
