@@ -12,11 +12,13 @@ def predict_emotions(text):
     payload = {"inputs": text}
 
     response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=20)
-    response.raise_for_status()
-
     data = response.json()
 
-    # Convert HF output list -> dictionary
+    # Handle model loading response
+    if isinstance(data, dict) and "error" in data:
+        raise ValueError(data["error"])
+
+    # HF sometimes returns nested list
     if isinstance(data, list) and isinstance(data[0], list):
         data = data[0]
 
