@@ -9,7 +9,6 @@ from rest_framework.exceptions import ValidationError
 from .models import Journal
 from .services.emotion_service import detect_emotion
 from .services.analytics_service import compute_user_analytics
-from .services.pet_service import get_pet_state
 from .services.insight_service import generate_insight, generate_multiple_insights
 
 import logging
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 def create_journal(request):
     """
     Create a new journal entry with emotion detection.
-    Returns minimal response - no longer includes full analytics/insights.
+    Returns minimal response including crisis flag for immediate feedback.
     """
     logger.info(f"Journal request received from user {request.user.username}")
 
@@ -33,7 +32,6 @@ def create_journal(request):
     if len(text) > 2000:
         raise ValidationError("Text exceeds 2000 characters")
 
-    # Save journal immediately
     journal = Journal.objects.create(
         user=request.user,
         text=text
@@ -41,7 +39,6 @@ def create_journal(request):
 
     logger.info(f"Journal {journal.id} saved (initial save)")
 
-    # Attempt emotion detection
     try:
         emotion_data = detect_emotion(text)
 
@@ -54,27 +51,24 @@ def create_journal(request):
 
     except Exception as e:
         logger.error(f"Emotion detection failed for journal {journal.id}: {str(e)}")
-        # Continue without emotion data - journal is already saved
 
-    # NEW: Compute quick analytics for contextual feedback
     analytics = compute_user_analytics(request.user)
-    
-    # Generate a single contextual message (optional - can be removed)
+
     contextual_message = None
     if analytics.get("data_sufficiency"):
         baseline_shifts = analytics.get("baseline_shifts", {})
         if baseline_shifts:
-            # Quick deviation check
             contextual_message = "This entry feels different from your recent ones."
         elif analytics.get("emotional_entropy", 0) >= 2.0:
             contextual_message = "You expressed a lot of different feelings today."
-    
+
     return Response({
         "journal_id": journal.id,
         "dominant_emotion": journal.dominant_emotion,
         "confidence": journal.confidence,
-        "contextual_message": contextual_message,  # NEW: Simple one-liner
-        "has_insights": analytics.get("data_sufficiency", False)  # NEW: Tell user if insights are ready
+        "contextual_message": contextual_message,
+        "has_insights": analytics.get("data_sufficiency", False),
+        "crisis_flag": analytics.get("crisis_flag", False),  # NEW
     })
 
 
@@ -94,32 +88,30 @@ class UserAnalyticsView(APIView):
 @permission_classes([IsAuthenticated])
 def user_insights(request):
     """
-    NEW ENDPOINT: Get interpreted insights (used by Insights screen).
+    Get interpreted insights (used by Insights screen).
     Returns human-readable insights based on analytics.
     """
     logger.info(f"Insights requested by user {request.user.username}")
-    
-    # Compute analytics
+
     analytics = compute_user_analytics(request.user)
-    
-    # Get query parameter to determine response format
-    format_type = request.query_params.get("format", "multiple")  # "single" or "multiple"
-    
+
+    format_type = request.query_params.get("format", "multiple")
+
     if format_type == "single":
-        # Single comprehensive insight
         insight = generate_insight(analytics)
         return Response({
             "insight": insight,
             "data_sufficiency": analytics.get("data_sufficiency", False),
-            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0),
+            "crisis_flag": analytics.get("crisis_flag", False),  # NEW
         })
     else:
-        # Multiple insights for card-based UI
         insights = generate_multiple_insights(analytics)
         return Response({
             "insights": insights,
             "data_sufficiency": analytics.get("data_sufficiency", False),
-            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0),
+            "crisis_flag": analytics.get("crisis_flag", False),  # NEW
         })
 
 
