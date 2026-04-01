@@ -103,18 +103,18 @@ def get_opening_question(entry_count=0):
 
 
 def get_next_question(conversation_history):
-    """
-    Given the full conversation history (list of ReflectMessage objects),
-    call Claude and return the next question.
-
-    conversation_history: queryset or list of ReflectMessage instances
-    """
-    # Build messages array for Claude
     messages = []
     for msg in conversation_history:
         messages.append({
             "role": msg.role,
             "content": msg.content,
         })
+
+    # Anthropic API requires first message to be 'user' — drop leading assistant messages
+    while messages and messages[0]["role"] == "assistant":
+        messages.pop(0)
+
+    if not messages:
+        return _fallback_question(0)
 
     return _call_claude(messages)
