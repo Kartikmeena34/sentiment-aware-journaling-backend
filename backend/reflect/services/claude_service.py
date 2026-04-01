@@ -49,7 +49,7 @@ def _call_claude(messages):
     }
 
     payload = {
-        "model": "claude-haiku-4-5",
+        "model": "claude-3-5-haiku-20241022",
         "max_tokens": 150,
         "system": SYSTEM_PROMPT,
         "messages": messages,
