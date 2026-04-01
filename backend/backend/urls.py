@@ -25,4 +25,7 @@ urlpatterns = [
     
     # Journal endpoints
     path("api/journal/", include("journals.urls")),
+
+    # Reflection endpoints
+    path("api/reflect/", include("reflect.urls")),
 ]
