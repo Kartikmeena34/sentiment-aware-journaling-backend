@@ -1,5 +1,3 @@
-# journals/views.py
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,10 +16,6 @@ logger = logging.getLogger(__name__)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_journal(request):
-    """
-    Create a new journal entry with emotion detection.
-    Returns minimal response including crisis flag for immediate feedback.
-    """
     logger.info(f"Journal request received from user {request.user.username}")
 
     text = request.data.get("text")
@@ -41,14 +35,11 @@ def create_journal(request):
 
     try:
         emotion_data = detect_emotion(text)
-
         journal.emotion_data = emotion_data["raw"]
         journal.dominant_emotion = emotion_data["dominant_emotion"]
         journal.confidence = emotion_data["confidence"]
         journal.save()
-
         logger.info(f"Emotion detected for journal {journal.id}: {journal.dominant_emotion}")
-
     except Exception as e:
         logger.error(f"Emotion detection failed for journal {journal.id}: {str(e)}")
 
@@ -68,14 +59,11 @@ def create_journal(request):
         "confidence": journal.confidence,
         "contextual_message": contextual_message,
         "has_insights": analytics.get("data_sufficiency", False),
-        "crisis_flag": analytics.get("crisis_flag", False),  # NEW
+        "journal_text": text,
     })
 
 
 class UserAnalyticsView(APIView):
-    """
-    Get comprehensive analytics data (used by Trends screen).
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -87,14 +75,9 @@ class UserAnalyticsView(APIView):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_insights(request):
-    """
-    Get interpreted insights (used by Insights screen).
-    Returns human-readable insights based on analytics.
-    """
     logger.info(f"Insights requested by user {request.user.username}")
 
     analytics = compute_user_analytics(request.user)
-
     format_type = request.query_params.get("format", "multiple")
 
     if format_type == "single":
@@ -102,25 +85,20 @@ def user_insights(request):
         return Response({
             "insight": insight,
             "data_sufficiency": analytics.get("data_sufficiency", False),
-            "weekly_confidence": analytics.get("weekly_confidence", 0.0),
-            "crisis_flag": analytics.get("crisis_flag", False),  # NEW
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
         })
     else:
         insights = generate_multiple_insights(analytics)
         return Response({
             "insights": insights,
             "data_sufficiency": analytics.get("data_sufficiency", False),
-            "weekly_confidence": analytics.get("weekly_confidence", 0.0),
-            "crisis_flag": analytics.get("crisis_flag", False),  # NEW
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
         })
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def journal_history(request):
-    """
-    Get user's journal history (used by History screen).
-    """
     journals = (
         Journal.objects
         .filter(user=request.user)
@@ -134,8 +112,30 @@ def journal_history(request):
             "dominant_emotion": j.dominant_emotion,
             "confidence": j.confidence,
             "created_at": j.created_at,
+            "has_reflection": bool(j.reflection_answer),
         }
         for j in journals
     ]
 
     return Response(data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def save_reflection(request):
+    journal_id = request.data.get("journal_id")
+    question = request.data.get("question")
+    answer = request.data.get("answer")
+
+    if not journal_id or not question or not answer:
+        raise ValidationError("journal_id, question and answer are required")
+
+    try:
+        journal = Journal.objects.get(id=journal_id, user=request.user)
+        journal.reflection_question = question
+        journal.reflection_answer = answer
+        journal.save()
+        logger.info(f"Reflection saved for journal {journal_id}")
+        return Response({"success": True})
+    except Journal.DoesNotExist:
+        raise ValidationError("Journal not found")

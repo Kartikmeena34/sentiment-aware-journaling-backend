@@ -9,6 +9,8 @@ class Journal(models.Model):
     emotion_data = models.JSONField(null=True, blank=True)
     dominant_emotion = models.CharField(max_length=50, null=True, blank=True)
     confidence = models.FloatField(null=True, blank=True)
+    reflection_question = models.TextField(null=True, blank=True)
+    reflection_answer = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
