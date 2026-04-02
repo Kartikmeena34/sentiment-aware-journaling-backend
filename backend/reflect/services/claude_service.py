@@ -69,6 +69,11 @@ def _call_claude(messages):
             json=payload,
             timeout=15,
         )
+        # Log the full response before raising
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Claude response status: {response.status_code}")
+        logger.error(f"Claude response body: {response.text}")
         response.raise_for_status()
         data = response.json()
         return data["content"][0]["text"].strip()
@@ -77,7 +82,6 @@ def _call_claude(messages):
         import logging
         logging.getLogger(__name__).error(f"Claude API call failed: {str(e)}")
         return _fallback_question(len(messages))
-
 
 def get_opening_question(entry_count=0):
     time_of_day = _get_time_of_day()
