@@ -4,8 +4,8 @@ import requests
 import os
 from django.utils import timezone
 
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 SYSTEM_PROMPT = """You are a gentle journaling companion. Your role is to ask one thoughtful follow-up question to help the user explore their feelings more deeply.
 
@@ -46,20 +46,18 @@ def _fallback_question(message_count):
 
 
 def _call_llm(messages):
-    if not OPENROUTER_API_KEY:
+    if not GROQ_API_KEY:
         import logging
-        logging.getLogger(__name__).warning("OPENROUTER_API_KEY not set — using fallback questions")
+        logging.getLogger(__name__).warning("GROQ_API_KEY not set — using fallback questions")
         return _fallback_question(len(messages))
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://sentiment-aware-journaling-backend.onrender.com",
-        "X-Title": "MoodScript Journaling App",
     }
 
     payload = {
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "model": "llama-3.3-70b-versatile",
         "max_tokens": 150,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -69,7 +67,7 @@ def _call_llm(messages):
 
     try:
         response = requests.post(
-            OPENROUTER_API_URL,
+            GROQ_API_URL,
             headers=headers,
             json=payload,
             timeout=20,
@@ -79,7 +77,7 @@ def _call_llm(messages):
         logger = logging.getLogger(__name__)
 
         if response.status_code != 200:
-            logger.error(f"OpenRouter error {response.status_code}: {response.text}")
+            logger.error(f"Groq error {response.status_code}: {response.text}")
             return _fallback_question(len(messages))
 
         data = response.json()
@@ -87,7 +85,7 @@ def _call_llm(messages):
 
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error(f"OpenRouter API call failed: {str(e)}")
+        logging.getLogger(__name__).error(f"Groq API call failed: {str(e)}")
         return _fallback_question(len(messages))
 
 
@@ -107,10 +105,9 @@ def get_opening_question(entry_count=0):
 def get_next_question(conversation_history):
     """
     Given the full conversation history (list of ReflectMessage objects),
-    call the LLM and return the next question.
+    call Groq and return the next question.
 
-    OpenRouter/OpenAI format requires alternating user/assistant messages
-    and the first message must be from 'user'.
+    API requires first message to be from 'user' — drop leading assistant messages.
     """
     messages = []
     for msg in conversation_history:
