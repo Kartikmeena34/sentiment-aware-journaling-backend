@@ -22,7 +22,6 @@ Do not add any preamble. Just ask the question directly."""
 
 
 def _get_time_of_day():
-    """Return a simple time period string."""
     hour = timezone.now().hour
     if 5 <= hour < 12:
         return "morning"
@@ -34,11 +33,19 @@ def _get_time_of_day():
         return "night"
 
 
+def _fallback_question(message_count):
+    fallbacks = [
+        "What's been on your mind the most today?",
+        "How has that been making you feel?",
+        "What do you think is behind that feeling?",
+        "Is there anything specific that triggered this?",
+        "What would help you feel a little lighter right now?",
+    ]
+    index = min(message_count // 2, len(fallbacks) - 1)
+    return fallbacks[index]
+
+
 def _call_claude(messages):
-    """
-    Call Claude API with a list of message dicts.
-    Returns the assistant's response text or a fallback question.
-    """
     if not ANTHROPIC_API_KEY:
         return _fallback_question(len(messages))
 
@@ -72,24 +79,7 @@ def _call_claude(messages):
         return _fallback_question(len(messages))
 
 
-def _fallback_question(message_count):
-    """Return a sensible fallback question if Claude API is unavailable."""
-    fallbacks = [
-        "What's been on your mind the most today?",
-        "How has that been making you feel?",
-        "What do you think is behind that feeling?",
-        "Is there anything specific that triggered this?",
-        "What would help you feel a little lighter right now?",
-    ]
-    index = min(message_count // 2, len(fallbacks) - 1)
-    return fallbacks[index]
-
-
 def get_opening_question(entry_count=0):
-    """
-    Generate the first question for a reflect session.
-    Slightly varied based on time of day.
-    """
     time_of_day = _get_time_of_day()
 
     openings = {
@@ -110,7 +100,7 @@ def get_next_question(conversation_history):
             "content": msg.content,
         })
 
-    # Anthropic API requires first message to be 'user' — drop leading assistant messages
+    # Anthropic requires first message to be 'user' — drop leading assistant messages
     while messages and messages[0]["role"] == "assistant":
         messages.pop(0)
 
