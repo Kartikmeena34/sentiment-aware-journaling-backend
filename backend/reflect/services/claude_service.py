@@ -4,8 +4,8 @@ import requests
 import os
 from django.utils import timezone
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
 SYSTEM_PROMPT = """You are a gentle journaling companion. Your role is to ask one thoughtful follow-up question to help the user explore their feelings more deeply.
 
@@ -45,43 +45,51 @@ def _fallback_question(message_count):
     return fallbacks[index]
 
 
-def _call_claude(messages):
-    if not ANTHROPIC_API_KEY:
+def _call_llm(messages):
+    if not OPENROUTER_API_KEY:
+        import logging
+        logging.getLogger(__name__).warning("OPENROUTER_API_KEY not set — using fallback questions")
         return _fallback_question(len(messages))
 
     headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://sentiment-aware-journaling-backend.onrender.com",
+        "X-Title": "MoodScript Journaling App",
     }
 
     payload = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "max_tokens": 150,
-        "system": SYSTEM_PROMPT,
-        "messages": messages,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *messages,
+        ],
     }
 
     try:
         response = requests.post(
-            ANTHROPIC_API_URL,
+            OPENROUTER_API_URL,
             headers=headers,
             json=payload,
-            timeout=15,
+            timeout=20,
         )
-        # Log the full response before raising
+
         import logging
         logger = logging.getLogger(__name__)
-        logger.error(f"Claude response status: {response.status_code}")
-        logger.error(f"Claude response body: {response.text}")
-        response.raise_for_status()
+
+        if response.status_code != 200:
+            logger.error(f"OpenRouter error {response.status_code}: {response.text}")
+            return _fallback_question(len(messages))
+
         data = response.json()
-        return data["content"][0]["text"].strip()
+        return data["choices"][0]["message"]["content"].strip()
 
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error(f"Claude API call failed: {str(e)}")
+        logging.getLogger(__name__).error(f"OpenRouter API call failed: {str(e)}")
         return _fallback_question(len(messages))
+
 
 def get_opening_question(entry_count=0):
     time_of_day = _get_time_of_day()
@@ -97,6 +105,13 @@ def get_opening_question(entry_count=0):
 
 
 def get_next_question(conversation_history):
+    """
+    Given the full conversation history (list of ReflectMessage objects),
+    call the LLM and return the next question.
+
+    OpenRouter/OpenAI format requires alternating user/assistant messages
+    and the first message must be from 'user'.
+    """
     messages = []
     for msg in conversation_history:
         messages.append({
@@ -104,11 +119,11 @@ def get_next_question(conversation_history):
             "content": msg.content,
         })
 
-    # Anthropic requires first message to be 'user' — drop leading assistant messages
+    # Drop leading assistant messages — API requires first message is 'user'
     while messages and messages[0]["role"] == "assistant":
         messages.pop(0)
 
     if not messages:
         return _fallback_question(0)
 
-    return _call_claude(messages)
+    return _call_llm(messages)
