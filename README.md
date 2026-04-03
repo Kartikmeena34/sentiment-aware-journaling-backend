@@ -785,7 +785,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 **GitHub:** [@Kartikmeena34](https://github.com/Kartikmeena34)  
 **Email:** kartikmeena34@gmail.com
 
-**Research Paper:** *"Beyond Emotion Mirroring: Design and Implementation of a Confidence-Weighted Sentiment Analytics Framework for Mobile Journaling"* — submitted to HCI International 2026
 
 ---
 
