@@ -1,8 +1,8 @@
-# Sentiment-Aware Journaling Application
+# MoodScript
 
-**Version 1.0 - Production Release**
+**Sentiment-Aware Journaling Application — v1.0**
 
-A mobile-first emotional well-being platform that transforms journal entries into actionable emotional insights through AI-driven sentiment analysis and comparative pattern detection.
+A mobile-first emotional well-being platform that transforms journal entries into epistemically grounded emotional insights using confidence-weighted sentiment analytics and comparative pattern detection.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Status](https://img.shields.io/badge/status-production-green)
@@ -13,140 +13,187 @@ A mobile-first emotional well-being platform that transforms journal entries int
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Features](#features)
-3. [Architecture](#architecture)
-4. [Technology Stack](#technology-stack)
-5. [Getting Started](#getting-started)
-6. [API Documentation](#api-documentation)
-7. [Deployment](#deployment)
-8. [Testing](#testing)
-9. [Contributing](#contributing)
-10. [Roadmap](#roadmap)
-11. [License](#license)
+2. [Core Research Contribution](#core-research-contribution)
+3. [Features](#features)
+4. [Architecture](#architecture)
+5. [Technology Stack](#technology-stack)
+6. [Getting Started](#getting-started)
+7. [API Documentation](#api-documentation)
+8. [Analytics Logic](#analytics-logic)
+9. [Model Details](#model-details)
+10. [Deployment](#deployment)
+11. [Testing](#testing)
+12. [Project Structure](#project-structure)
+13. [Roadmap](#roadmap)
 
 ---
 
 ## Overview
 
-The Sentiment-Aware Journaling Application helps users gain insights into their emotional patterns through AI-powered analysis. Unlike traditional journaling apps that simply detect emotions, this platform provides **comparative insights** by analyzing patterns over time.
+MoodScript helps users gain meaningful insight into their emotional patterns through AI-powered journaling — going beyond surface-level emotion labeling into comparative, confidence-qualified analytics.
 
-### The Core Innovation
+Unlike traditional emotion detection apps that mirror user input back ("You're feeling happy"), MoodScript surfaces patterns that users could not see themselves: baseline shifts, entropy trends, and emotional arc detection across journaling sessions.
 
-**Problem:** Traditional emotion detection apps just mirror what users write ("You're feeling happy" after user writes "I'm happy").
+### The Core Problem
 
-**Solution:** Comparative pattern analysis that reveals insights users couldn't see themselves ("Your joy has increased 45% compared to your baseline").
+Traditional sentiment apps commit **emotion mirroring** — presenting classifier outputs as emotional facts without uncertainty qualification. If a model predicts "joy" with 52% confidence, telling the user "you're feeling joyful" is epistemically dishonest.
 
-### Key Differentiators
+### The Solution
 
-- **Baseline Comparison:** Compares current emotional state to 30-day rolling average
-- **Range Trend Detection:** Tracks emotional diversity over time
-- **Confidence-Weighted Analytics:** More reliable pattern detection
-- **Privacy-First:** All data stays with the user, no third-party sharing
+A **confidence-weighted sentiment analytics framework** that:
+
+- Weights all emotional signals by model confidence before aggregating
+- Uses Shannon entropy to measure emotional diversity, not just dominant emotion
+- Compares current state to a rolling 30-day baseline to surface real change
+- Distinguishes low-confidence observations from high-confidence insights
+- Detects emotional arc across guided reflection sessions
+
+---
+
+## Core Research Contribution
+
+This application accompanies an academic paper submitted to **HCI International 2026** (Springer LNCS, Scopus-indexed):
+
+> *"Beyond Emotion Mirroring: Design and Implementation of a Confidence-Weighted Sentiment Analytics Framework for Mobile Journaling"*
+
+**Key contributions:**
+- Confidence-weighted emotion aggregation replacing naive averaging
+- Shannon entropy as an operational measure of emotional range
+- Rolling baseline comparison with ±20% significance thresholding
+- Two-stream analytics: free-form journaling + guided Reflect mode
+- Crisis detection logic using sustained distress signals (not single-entry flags)
+- Fine-tuned `j-hartmann/emotion-english-distilroberta-base` on 219 domain-specific labeled entries
 
 ---
 
 ## Features
 
-### ✅ Core Features (v1.0)
+### Authentication & Security
 
-#### Authentication & Security
-- JWT-based secure authentication
-- Auto-logout on token expiration
-- Encrypted data storage
-- Secure API communication
+- JWT-based authentication (24h access token, 30-day refresh)
+- Automatic token refresh with queued request handling
+- Secure token storage via AsyncStorage
+- Auto-logout on refresh token expiration
 
-#### Journaling Experience
-- Text-based journal entry creation
-- AI-powered emotion detection (7 emotion categories)
-- Confidence scoring (0-100%)
-- Simplified feedback (no emotion mirroring)
-- Smooth animations and transitions
+### Journaling — Free-Form Mode
 
-#### Insights Engine
-- **Baseline Shifts:** "Your joy increased 45% vs baseline"
-- **Range Trends:** "Your emotional range is expanding"
-- **Within-Week Patterns:** "Anxiety is building up this week"
-- **High Diversity Detection:** "Wide emotional range this week"
+- Text journal entry creation
+- Synchronous AI emotion detection via HuggingFace Inference API
+- 7-label emotion classification: joy, sadness, fear, anger, disgust, surprise, neutral
+- Confidence scoring per entry
+- Entry saved regardless of AI availability (graceful degradation)
 
-#### Analytics Dashboard
-- Weekly emotion distribution (bar charts)
-- Trend indicators (↑ increasing, ↓ decreasing)
-- Emotional entropy visualization
-- Confidence calibration notices
+### Reflect Mode (Guided Journaling)
 
-#### User Profile
-- Complete journal history
-- Entry detail view
-- User account management
-- Logout functionality
+- Claude API-backed conversational journaling
+- Personalized follow-up questions based on conversation history and time of day
+- Emotional arc detection across the session (e.g., fear → neutral = resolution)
+- Separate data model from free-form journals for independent analytics
+- Session ends when the user decides — no forced structure
 
-#### Error Handling
-- Network error detection with retry
-- Server error handling
-- Token expiration management
-- Graceful degradation
+### Insights Engine
+
+- **Baseline Shifts:** "Your joy has increased 45% compared to your usual baseline"
+- **Emotional Range Trend:** "Your emotional range is expanding / narrowing"
+- **Within-Week Trends:** Linear regression slope over current week entries
+- **High Diversity Detection:** Entropy-based wide range observation
+- **Reflect Arc Insight:** "You moved from anxiety to calm across today's reflection"
+- **Divergence Insight:** "Your reflections surface more fear than your journals this week"
+- Confidence badge visible when weekly confidence < 0.6
+
+### Crisis Detection
+
+- Triggered when: sadness + fear weighted score > 0.65 AND 4+ entries with sadness or fear as dominant emotion in 7 days
+- Warm amber-toned supportive message — no clinical language, no helpline numbers
+- Checked on both InsightsScreen and EmotionFeedbackScreen
+
+### Progressive Intimacy
+
+- Tone adjusts based on entry count (Entry 1–5 → neutral; 6–15 → warmer; 16+ → warm)
+- Applied across Journal screen greeting, EmotionFeedback messages, and Reflect opening questions
+- Prevents the "instant best friend" problem on first visit
+
+### Analytics Dashboard
+
+- Confidence-weighted weekly emotion distribution (animated bar charts)
+- Emotional entropy visualization with interpreted range label
+- Trend indicators (↑ increasing, ↓ decreasing) using linear regression
+- Baseline shift display when 30-day history is available
+
+### UX Details
+
+- Warm journal aesthetic throughout: background `#FDF6EC`, accent `#C17B4E`
+- Ruled paper lines on journal entry screens
+- Emoji stamps per emotion on entry detail
+- Insight unlock progress bars for new users
+- Confidence tooltip modal explaining model uncertainty
+- Pull-to-refresh on Trends, Insights, and History screens
+- First-time user hint on Journal screen (disappears after first entry)
+- Progressive entry count indicator: "1 of 3 entries this week"
 
 ---
 
 ## Architecture
 
-### System Architecture
+### System Overview
+
 ```
-┌─────────────────┐
-│   Mobile App    │
-│  (React Native) │
-└────────┬────────┘
+┌─────────────────────┐
+│      MoodScript     │
+│    (React Native)   │
+└────────┬────────────┘
          │ HTTPS/REST
-         ↓
-┌─────────────────┐
-│  Django Backend │
-│   (REST API)    │
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    ↓         ↓
-┌────────┐ ┌──────────────┐
-│Database│ │ HuggingFace  │
-│(PostgreSQL)│ │  Emotion API │
-└────────┘ └──────────────┘
+         ▼
+┌─────────────────────┐
+│   Django Backend    │
+│   (REST API)        │
+└────┬────────────────┘
+     │
+  ┌──┴──────────┐
+  ▼             ▼
+┌──────────┐  ┌──────────────────────────┐
+│PostgreSQL│  │   HuggingFace API        │
+│(Render)  │  │ j-hartmann DistilRoBERTa │
+└──────────┘  └──────────────────────────┘
+                        +
+              ┌──────────────────────────┐
+              │   Anthropic Claude API   │
+              │  (Reflect Mode only)     │
+              └──────────────────────────┘
 ```
 
-### Data Flow
+### Data Flow — Free-Form Journal
+
 ```
-User writes journal entry
-         ↓
-Frontend sends text to backend
-         ↓
-Backend calls HuggingFace API for emotion detection
-         ↓
-Store entry with emotion data + confidence
-         ↓
-Analytics engine processes:
-  - Compute weighted distribution
-  - Calculate entropy
-  - Detect trends
-  - Compare to baseline
-         ↓
-Insights generator creates human-readable insights
-         ↓
-Frontend displays insights with animations
+User writes entry
+    → POST /api/journal/create/
+    → Journal saved to DB immediately
+    → Emotion detection via HuggingFace (async-safe — failure doesn't block save)
+    → Analytics computed: weighted distribution, entropy, baseline comparison
+    → Contextual message generated
+    → Response: journal_id, dominant_emotion, confidence, contextual_message, has_insights
 ```
 
-### Key Components
+### Data Flow — Reflect Session
 
-**Backend:**
-- `emotion_service.py` - HuggingFace API integration
-- `analytics_service.py` - Statistical analysis and pattern detection
-- `insight_service.py` - Insight generation logic
-- `views.py` - API endpoints
-- `models.py` - Database schema
+```
+User enters Reflect mode
+    → POST /api/reflect/start/ → Claude generates opening question
+    → POST /api/reflect/message/ (repeated) → Claude reads full history, responds
+    → POST /api/reflect/end/ → emotion detection on full conversation, arc computed
+    → ReflectSession + ReflectMessages saved
+    → EmotionFeedback screen shown as normal
+```
 
-**Frontend:**
-- `InsightsScreen.js` - Main insights display
-- `TrendScreen.js` - Analytics dashboard
-- `JournalScreen.js` - Entry creation
-- `ProfileScreen.js` - User profile and history
-- `AuthContext.js` - Authentication state management
+### Key Backend Services
+
+| File | Responsibility |
+|------|----------------|
+| `emotion_service.py` | HuggingFace API call, label extraction, confidence scoring |
+| `analytics_service.py` | Weighted distribution, Shannon entropy, baseline computation, trend detection, crisis detection |
+| `insight_service.py` | Priority-ordered human-readable insight generation |
+| `views.py` | API endpoints with permission enforcement |
+| `models.py` | Journal, ReflectSession, ReflectMessage schemas |
 
 ---
 
@@ -156,35 +203,43 @@ Frontend displays insights with animations
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| React Native | 0.72+ | Mobile framework |
-| Expo | 49+ | Development platform |
-| React Navigation | 6.x | Navigation |
-| Axios | 1.x | HTTP client |
-| AsyncStorage | 1.x | Local storage |
+| React Native | 0.81.5 | Mobile framework |
+| Expo | ~54.0.33 | Development platform |
+| React Navigation | 7.x | Navigation (stack + bottom tabs) |
+| Axios | 1.x | HTTP client with interceptors |
+| AsyncStorage | 2.2.0 | Token and user data storage |
+| Expo Linear Gradient | ~15.0.8 | UI gradients |
+| Expo Haptics | ~15.0.8 | Tactile feedback |
 
 ### Backend
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | Python | 3.10+ | Backend language |
-| Django | 4.2+ | Web framework |
-| Django REST Framework | 3.14+ | API framework |
-| PostgreSQL | 14+ | Database |
-| djangorestframework-simplejwt | 5.x | JWT authentication |
+| Django | 6.0.1 | Web framework |
+| Django REST Framework | 3.14+ | API layer |
+| PostgreSQL | 14+ | Production database |
+| SQLite | — | Local development fallback |
+| dj-database-url | — | DATABASE_URL parsing |
+| djangorestframework-simplejwt | 5.x | JWT auth with blacklist |
+| gunicorn | — | Production WSGI server |
+| whitenoise | — | Static file serving |
 
-### AI/ML
+### AI / ML
 
 | Service | Model | Purpose |
 |---------|-------|---------|
-| HuggingFace | j-hartmann/emotion-english-distilroberta-base | Emotion classification |
+| HuggingFace Inference API | `j-hartmann/emotion-english-distilroberta-base` | 7-label emotion classification |
+| Anthropic Claude API | `claude-haiku-4-5-20251001` | Reflect mode conversation |
 
 ### Infrastructure
 
 | Service | Purpose |
 |---------|---------|
-| Render | Backend hosting |
-| PostgreSQL (Render) | Database hosting |
-| Expo Go | Mobile testing |
+| Render (free tier) | Backend hosting |
+| PostgreSQL on Render | Production database |
+| UptimeRobot | Pings backend every 5 minutes to prevent cold starts |
+| EAS (Expo Application Services) | Android APK builds |
 
 ---
 
@@ -194,120 +249,100 @@ Frontend displays insights with animations
 
 **Backend:**
 - Python 3.10+
-- PostgreSQL 14+
-- pip or pipenv
+- PostgreSQL 14+ (or use SQLite for local dev)
+- pip
 
 **Frontend:**
 - Node.js 16+
 - npm or yarn
-- Expo CLI
+- Expo CLI (`npm install -g expo-cli`)
 
-**Services:**
-- HuggingFace account (free tier works)
+**API Keys:**
+- HuggingFace account — [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) (Read access)
+- Anthropic API key — required only if running Reflect mode
+
+---
 
 ### Backend Setup
 
-#### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/journaling-backend.git
+git clone https://github.com/Kartikmeena34/journaling-backend.git
 cd journaling-backend
-```
 
-#### 2. Create Virtual Environment
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+source venv/bin/activate   # Windows: venv\Scripts\activate
 
-#### 3. Install Dependencies
-```bash
 pip install -r requirements.txt
 ```
 
-#### 4. Environment Variables
+**Environment Variables**
 
-Create `.env` file:
+Create `.env`:
 ```env
-SECRET_KEY=your-secret-key-here
+SECRET_KEY=your-django-secret-key
 DEBUG=True
-DATABASE_URL=postgresql://user:password@localhost:5432/journaling_db
+DATABASE_URL=postgresql://user:password@localhost:5432/moodscript_db
 HF_TOKEN=your-huggingface-token
-ALLOWED_HOSTS=localhost,127.0.0.1
+ANTHROPIC_API_KEY=your-anthropic-key
 ```
 
-**Get HuggingFace Token:**
-1. Go to https://huggingface.co/settings/tokens
-2. Create new token (Read access)
-3. Copy token to `.env`
+For local development without PostgreSQL, `DATABASE_URL` can be omitted — the app falls back to SQLite automatically.
 
-#### 5. Database Setup
+**Run migrations and start:**
 ```bash
-python manage.py makemigrations
 python manage.py migrate
-```
-
-#### 6. Create Superuser
-```bash
-python manage.py createsuperuser
-```
-
-#### 7. Run Development Server
-```bash
 python manage.py runserver
 ```
 
-Backend will be available at `http://localhost:8000`
+**Production start command (Render):**
+```bash
+python manage.py migrate && gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 2 --worker-class gthread --max-requests 100
+```
+
+The `--workers 1` flag is intentional: it prevents Render free-tier memory pressure from the HuggingFace model being loaded into multiple worker processes simultaneously.
 
 ---
 
 ### Frontend Setup
 
-#### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/journaling-frontend.git
+git clone https://github.com/Kartikmeena34/journaling-frontend.git
 cd journaling-frontend
-```
 
-#### 2. Install Dependencies
-```bash
 npm install
-# or
-yarn install
 ```
 
-#### 3. Configure API URL
+**Configure API URL**
 
 Edit `src/service/api.js`:
 ```javascript
-const BASE_URL = "http://localhost:8000"; // For local development
-// const BASE_URL = "https://your-backend.onrender.com"; // For production
+const BASE_URL = "http://localhost:8000";           // Local development
+// const BASE_URL = "https://your-app.onrender.com"; // Production
 ```
 
-#### 4. Start Development Server
+**Start development server:**
 ```bash
 npx expo start
 ```
 
-#### 5. Run on Device
-
-- **iOS Simulator:** Press `i`
-- **Android Emulator:** Press `a`
-- **Physical Device:** Scan QR code with Expo Go app
+- **Android emulator:** press `a`
+- **iOS simulator:** press `i`
+- **Physical device:** scan QR with Expo Go app
 
 ---
 
 ## API Documentation
 
-### Authentication Endpoints
+### Authentication
 
-#### Register User
+#### Register
 ```http
 POST /api/auth/register/
 Content-Type: application/json
 
 {
-  "username": "testuser",
-  "email": "test@example.com",
+  "username": "kartik",
+  "email": "kartik@example.com",
   "password": "SecurePass123"
 }
 ```
@@ -315,13 +350,10 @@ Content-Type: application/json
 **Response:**
 ```json
 {
-  "user": {
-    "id": 1,
-    "username": "testuser",
-    "email": "test@example.com"
-  },
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+  "message": "User registered successfully",
+  "user": { "id": 1, "username": "kartik", "email": "kartik@example.com" },
+  "access": "<jwt_access_token>",
+  "refresh": "<jwt_refresh_token>"
 }
 ```
 
@@ -330,18 +362,15 @@ Content-Type: application/json
 POST /api/auth/login/
 Content-Type: application/json
 
-{
-  "username": "testuser",
-  "password": "SecurePass123"
-}
+{ "username": "kartik", "password": "SecurePass123" }
 ```
 
-**Response:**
-```json
-{
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
-}
+#### Refresh Token
+```http
+POST /api/auth/token/refresh/
+Content-Type: application/json
+
+{ "refresh": "<refresh_token>" }
 ```
 
 ---
@@ -352,23 +381,22 @@ Content-Type: application/json
 ```http
 POST /api/journal/create/
 Authorization: Bearer <access_token>
-Content-Type: application/json
 
-{
-  "text": "I'm feeling really happy about my progress today!"
-}
+{ "text": "Today I finally understood what I've been afraid of." }
 ```
 
 **Response:**
 ```json
 {
   "journal_id": 42,
-  "dominant_emotion": "joy",
-  "confidence": 0.95,
-  "contextual_message": "This entry feels different from your recent ones",
+  "dominant_emotion": "fear",
+  "confidence": 0.81,
+  "contextual_message": "This entry feels different from your recent ones.",
   "has_insights": true
 }
 ```
+
+`contextual_message` is `null` when no meaningful deviation is detected. `has_insights` is `false` until the user has at least 3 entries in the current week.
 
 #### Get Journal History
 ```http
@@ -376,25 +404,11 @@ GET /api/journal/history/
 Authorization: Bearer <access_token>
 ```
 
-**Response:**
-```json
-[
-  {
-    "id": 42,
-    "text": "I'm feeling really happy...",
-    "dominant_emotion": "joy",
-    "confidence": 0.95,
-    "created_at": "2026-03-05T10:30:00Z"
-  },
-  ...
-]
-```
-
 ---
 
-### Analytics Endpoints
+### Analytics & Insights
 
-#### Get Analytics
+#### Get Analytics (Trends Screen)
 ```http
 GET /api/journal/analytics/
 Authorization: Bearer <access_token>
@@ -403,38 +417,26 @@ Authorization: Bearer <access_token>
 **Response:**
 ```json
 {
-  "weekly_distribution": {
-    "joy": 0.45,
-    "sadness": 0.25,
-    "anxiety": 0.20,
-    "neutral": 0.10
-  },
-  "emotional_entropy": 1.85,
-  "trends": {
-    "joy": "increasing",
-    "anxiety": "decreasing"
-  },
+  "weekly_distribution": { "fear": 0.42, "sadness": 0.30, "neutral": 0.18, "joy": 0.10 },
+  "emotional_entropy": 1.72,
+  "trends": { "fear": "increasing", "joy": "decreasing" },
   "data_sufficiency": true,
-  "weekly_confidence": 0.82,
+  "weekly_confidence": 0.77,
   "baseline_shifts": {
-    "joy": {
-      "change": 0.45,
-      "direction": "increased",
-      "magnitude": 45
-    }
+    "fear": { "change": 0.38, "direction": "increased", "magnitude": 38 }
   },
-  "range_trend": {
-    "trend": "expanding",
-    "change": 0.23
-  }
+  "range_trend": { "trend": "contracting", "change": -0.19 },
+  "crisis_flag": false
 }
 ```
 
-#### Get Insights
+#### Get Insights (Insights Screen)
 ```http
 GET /api/journal/insights/
 Authorization: Bearer <access_token>
 ```
+
+**Optional query param:** `?format=single` returns one string instead of a card array.
 
 **Response:**
 ```json
@@ -442,25 +444,32 @@ Authorization: Bearer <access_token>
   "insights": [
     {
       "type": "baseline_shift",
-      "title": "Joy Has Increased",
-      "message": "Your joy has increased by 45% compared to your usual baseline over the last month.",
-      "confidence": 0.82
+      "title": "Fear Has Increased",
+      "message": "Your fear has increased by 38% compared to your usual baseline over the last month.",
+      "confidence": 0.77
     },
     {
-      "type": "range_expanding",
-      "title": "Emotional Range Expanding",
-      "message": "You're expressing more diverse feelings in your entries lately.",
-      "confidence": 0.82
+      "type": "range_contracting",
+      "title": "Emotional Range Narrowing",
+      "message": "Your recent entries show less emotional variety than before.",
+      "confidence": 0.77
     }
   ],
   "data_sufficiency": true,
-  "weekly_confidence": 0.82
+  "weekly_confidence": 0.77
 }
 ```
 
-**Query Parameters:**
-- `format=single` - Returns single comprehensive insight as string
-- `format=multiple` (default) - Returns array of insight objects
+---
+
+### Reflect Mode Endpoints
+
+```http
+POST /api/reflect/start/          → Begin session, return first Claude question
+POST /api/reflect/message/        → Send user reply, return next question
+POST /api/reflect/end/            → Close session, run emotion detection on full arc
+GET  /api/reflect/history/        → Past reflect sessions
+```
 
 ---
 
@@ -468,554 +477,316 @@ Authorization: Bearer <access_token>
 
 ### Confidence-Weighted Distribution
 
-Each emotion is weighted by the confidence score of its detection:
+Raw emotion probabilities are weighted by model confidence before aggregation, preventing low-confidence predictions from distorting the distribution.
+
 ```python
 weighted_score = emotion_probability × confidence_score
 aggregate[emotion] += weighted_score
-
-# Normalize
-final_distribution = aggregate / total_confidence
+normalized[emotion] = aggregate[emotion] / total_confidence
 ```
 
-**Example:**
-- Entry 1: joy=0.9, confidence=0.85 → weighted=0.765
-- Entry 2: joy=0.7, confidence=0.60 → weighted=0.420
-- Final joy score: (0.765 + 0.420) / (0.85 + 0.60) = 0.817
+### Shannon Entropy (Emotional Range)
 
-### Emotional Entropy
-
-Measures emotional diversity using Shannon entropy:
 ```python
-entropy = -Σ(p × log₂(p)) for all emotions
+entropy = -Σ (p × log₂(p))   for all emotions with p > 0
 ```
 
-**Interpretation:**
-- entropy ≥ 2.0: Wide emotional range
-- 1.0 ≤ entropy < 2.0: Moderate range
-- entropy < 1.0: Focused/narrow range
+| Entropy | Interpretation |
+|---------|----------------|
+| ≥ 2.0 | Wide emotional range |
+| 1.0 – 2.0 | Moderate range |
+| < 1.0 | Focused / narrow range |
 
-### Baseline Calculation
+### Rolling Baseline Comparison
 
-Rolling 30-day average of emotion distribution:
 ```python
-baseline = compute_weighted_distribution(last_30_days)
-current_week = compute_weighted_distribution(last_7_days)
-
-shift = (current - baseline) / baseline × 100
+baseline_dist = compute_weighted_distribution(last_30_days)
+current_dist  = compute_weighted_distribution(last_7_days)
+shift = (current - baseline) / baseline   # Reported as percentage
 ```
 
-**Significance threshold:** ±20% change
+Shifts below ±20% are suppressed as statistical noise.
 
-### Trend Detection
+### Trend Detection (Linear Regression)
 
-Uses linear regression to detect increasing/decreasing patterns:
+Applied to per-emotion weighted time series within the current week:
+
 ```python
 slope = (n×Σxy - Σx×Σy) / (n×Σx² - (Σx)²)
-
-if slope > 0.02: trend = "increasing"
-elif slope < -0.02: trend = "decreasing"
+# slope > 0.02  → "increasing"
+# slope < -0.02 → "decreasing"
 ```
 
-### Data Sufficiency Rules
+Requires minimum 4 entries and at least 3 data points per emotion.
+
+### Crisis Detection
+
+```python
+crisis_flag = (
+    sadness_weighted + fear_weighted > 0.65
+    AND count(entries where dominant in ['sadness', 'fear'], last 7 days) >= 4
+)
+```
+
+Both conditions must hold simultaneously. Designed to avoid false positives on isolated difficult days.
+
+### Data Sufficiency Thresholds
 
 | Insight Type | Minimum Requirement |
-|--------------|---------------------|
-| Basic trends | 3 entries (last 7 days) |
-| Within-week slope | 4 entries (last 7 days) |
+|---|---|
+| Basic analytics | 3 valid entries (last 7 days) |
+| Within-week trend | 4 entries (last 7 days) |
 | Baseline comparison | 7 entries (last 30 days) |
-| Range trend | 3 entries in each period (recent + older) |
+| Range trend | 3 entries in each of: recent 7 days + prior 23 days |
+| Crisis flag | 4 entries (last 7 days) + weighted score threshold |
+
+---
+
+## Model Details
+
+**Model:** [`j-hartmann/emotion-english-distilroberta-base`](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base)
+
+**Labels (7):** joy, sadness, fear, anger, disgust, surprise, neutral
+
+**Fine-tuning:** The base model was fine-tuned on 219 labeled journal entries collected via Google Forms. Self-reported labels from users were used as ground truth. Class imbalance (joy=52, sadness=37, fear=37, disgust=25, neutral=25, surprise=25, anger=18) was addressed using weighted loss during fine-tuning.
+
+**Inference:** Via HuggingFace Inference API (synchronous call, 20s timeout, graceful degradation on failure).
+
+**Deployment note:** The model is not loaded in-process. All inference runs through the HuggingFace hosted API, which eliminates memory pressure on the Render free tier.
 
 ---
 
 ## Deployment
 
-### Backend Deployment (Render)
+### Backend (Render Free Tier)
 
-#### 1. Prepare for Deployment
+The backend is live at: `https://sentiment-aware-journaling-backend.onrender.com`
 
-Create `render.yaml`:
-```yaml
-services:
-  - type: web
-    name: journaling-backend
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn config.wsgi:application
-    envVars:
-      - key: SECRET_KEY
-        generateValue: true
-      - key: HF_TOKEN
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: journaling-db
-          property: connectionString
-      - key: PYTHON_VERSION
-        value: 3.10.0
+**Environment variables required on Render:**
 
-databases:
-  - name: journaling-db
-    databaseName: journaling
-    user: journaling_user
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | Django secret key |
+| `DATABASE_URL` | Render PostgreSQL internal connection string |
+| `HF_TOKEN` | HuggingFace API token (Read access) |
+| `ANTHROPIC_API_KEY` | Required for Reflect mode |
+| `DEBUG` | Set to `False` in production |
+
+**Cold start mitigation:** UptimeRobot is configured to ping the backend every 5 minutes, keeping the Render free-tier instance warm.
+
+**Gunicorn configuration for Render free tier:**
+```bash
+gunicorn backend.wsgi:application \
+  --bind 0.0.0.0:$PORT \
+  --workers 1 \
+  --threads 2 \
+  --worker-class gthread \
+  --max-requests 100
 ```
 
-#### 2. Add `requirements.txt`
-```
-Django==4.2.7
-djangorestframework==3.14.0
-djangorestframework-simplejwt==5.3.0
-psycopg2-binary==2.9.9
-gunicorn==21.2.0
-requests==2.31.0
-python-decouple==3.8
-django-cors-headers==4.3.0
+### APK Build (Android)
+
+```bash
+npm install -g eas-cli
+eas login
+eas init
 ```
 
-#### 3. Configure Settings
-
-In `settings.py`:
-```python
-import os
-from decouple import config
-
-SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=bool)
-
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '.onrender.com',
-]
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', default='5432'),
+`eas.json`:
+```json
+{
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
     }
-}
-
-# Or use DATABASE_URL
-import dj_database_url
-DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL')
-    )
+  }
 }
 ```
 
-#### 4. Deploy to Render
-
-1. Push code to GitHub
-2. Go to Render dashboard
-3. Create New → Web Service
-4. Connect GitHub repository
-5. Set environment variables:
-   - `SECRET_KEY`
-   - `HF_TOKEN`
-   - `DATABASE_URL` (auto-configured if using Render PostgreSQL)
-6. Deploy
-
-**Production URL:** `https://your-app.onrender.com`
-
----
-
-### Frontend Deployment
-
-#### Option 1: Expo Go (Testing)
 ```bash
-npx expo start
+eas build --platform android --profile preview
 ```
 
-Share link with testers via QR code or URL.
-
-#### Option 2: Build for Production
-
-**iOS:**
-```bash
-eas build --platform ios
-```
-
-**Android:**
-```bash
-eas build --platform android
-```
-
-**Submit to Stores:**
-```bash
-eas submit --platform ios
-eas submit --platform android
-```
+Download the APK from the Expo dashboard once the build completes.
 
 ---
 
 ## Testing
 
-### Backend Testing
+### Backend Tests
 
-#### Unit Tests
-
-Create `tests.py` in each app:
-```python
-from django.test import TestCase
-from django.contrib.auth import get_user_model
-from .services.analytics_service import compute_weighted_distribution
-
-class AnalyticsTestCase(TestCase):
-    def setUp(self):
-        User = get_user_model()
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
-        )
-    
-    def test_weighted_distribution(self):
-        # Create test journals
-        # Test analytics computation
-        pass
-```
-
-Run tests:
+Run the full test suite:
 ```bash
 python manage.py test
 ```
 
-#### API Tests
-```bash
-# Test login
-curl -X POST http://localhost:8000/api/auth/login/ \
-  -H "Content-Type: application/json" \
-  -d '{"username":"testuser","password":"testpass123"}'
+**Current test coverage (6/6 passing):**
 
-# Test insights
-curl -X GET http://localhost:8000/api/journal/insights/ \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
+| Test | Description |
+|---|---|
+| `test_register_user` | User registration creates account |
+| `test_login_returns_tokens` | Login returns valid access + refresh tokens |
+| `test_refresh_token` | Refresh endpoint issues new access token |
+| `test_journal_requires_auth` | Unauthenticated journal creation returns 401 |
+| `test_create_journal_authenticated` | Authenticated creation returns expected fields |
+| `test_analytics_structure` | Analytics endpoint returns all required keys |
 
----
+### Manual Testing Checklist
 
-### Frontend Testing
-
-#### Manual Testing Checklist
-
+**Authentication:**
 - [ ] Register new account
 - [ ] Login with valid credentials
-- [ ] Login with invalid credentials (error handling)
-- [ ] Create journal entry
-- [ ] View insights (sufficient data)
-- [ ] View insights (insufficient data)
-- [ ] View trends
-- [ ] View profile and history
-- [ ] Pull-to-refresh on all screens
-- [ ] Logout
-- [ ] Test with no internet (error states)
-- [ ] Test token expiration
+- [ ] Login with invalid credentials (error message shown)
+- [ ] Token auto-refresh on expiry
+- [ ] Logout clears all stored tokens
 
-#### Automated Testing
-```bash
-npm test
-```
+**Journal Flow:**
+- [ ] Create entry — emotion detection succeeds
+- [ ] Create entry — HuggingFace unavailable (entry still saves)
+- [ ] EmotionFeedback screen shows correct contextual message
+- [ ] EmotionFeedback shows crisis message when threshold met
+
+**Analytics:**
+- [ ] Insights screen empty state (< 3 entries)
+- [ ] Insights screen with sufficient data
+- [ ] Trends screen animated bars
+- [ ] Pull-to-refresh on Insights and Trends
+
+**Reflect Mode:**
+- [ ] Toggle between Journal and Reflect modes
+- [ ] Conversation continues coherently across turns
+- [ ] "I'm done" closes session and triggers EmotionFeedback
+
+**Edge Cases:**
+- [ ] Network error state on all screens (retry button)
+- [ ] Server error state (500)
+- [ ] Very long journal entry (>2000 chars, should be rejected)
+- [ ] Empty journal entry (should be rejected client-side)
 
 ---
 
 ## Project Structure
 
-### Backend Structure
+### Backend
+
 ```
 backend/
-├── config/
-│   ├── settings.py
-│   ├── urls.py
+├── backend/
+│   ├── settings.py         # Django config, JWT settings, DB config
+│   ├── urls.py             # Root URL routing
+│   ├── exceptions.py       # Custom DRF exception handler
 │   └── wsgi.py
+├── accounts/
+│   ├── views.py            # register_user, login_user
+│   └── urls.py
 ├── journals/
-│   ├── models.py
-│   ├── serializers.py
-│   ├── views.py
+│   ├── models.py           # Journal, ReflectSession, ReflectMessage
+│   ├── views.py            # create_journal, user_insights, journal_history, analytics
 │   ├── urls.py
 │   └── services/
-│       ├── emotion_service.py
-│       ├── analytics_service.py
-│       └── insight_service.py
-├── users/
-│   ├── models.py
-│   ├── serializers.py
-│   └── views.py
+│       ├── emotion_service.py      # HuggingFace API wrapper
+│       ├── analytics_service.py   # Weighted distribution, entropy, baseline, crisis
+│       └── insight_service.py     # Priority-ordered insight generation
 ├── manage.py
 └── requirements.txt
 ```
 
-### Frontend Structure
+### Frontend
+
 ```
-frontend/
-├── src/
-│   ├── components/
-│   │   └── PrimaryButton.js
-│   ├── contexts/
-│   │   └── AuthContext.js
-│   ├── navigation/
-│   │   └── AppNavigator.js
-│   ├── screens/
-│   │   ├── LoginScreen.js
-│   │   ├── RegisterScreen.js
-│   │   ├── JournalScreen.js
-│   │   ├── EmotionFeedbackScreen.js
-│   │   ├── InsightsScreen.js
-│   │   ├── TrendScreen.js
-│   │   ├── ProfileScreen.js
-│   │   ├── HistoryScreen.js
-│   │   └── EntryDetailScreen.js
-│   ├── service/
-│   │   └── api.js
-│   └── theme/
-│       ├── colors.js
-│       ├── tokens.js
-│       └── typography.js
-├── App.js
-├── index.js
-└── package.json
+src/
+├── context/
+│   └── AuthContext.js          # Global auth state, login/logout, token check
+├── navigation/
+│   └── AppNavigator.js         # Stack + Tab navigator setup
+├── screens/
+│   ├── LoginScreen.js
+│   ├── RegisterScreen.js
+│   ├── JournalScreen.js        # Free-form entry + Reflect mode toggle
+│   ├── ReflectScreen.js        # Conversational journaling UI
+│   ├── EmotionFeedbackScreen.js
+│   ├── InsightsScreen.js       # Animated insight cards, crisis banner
+│   ├── TrendScreen.js          # Emotion distribution, entropy, trend indicators
+│   ├── ProfileScreen.js        # Stats, history, logout
+│   ├── HistoryScreen.js
+│   └── EntryDetailScreen.js    # Emoji stamp, ruled paper layout
+├── service/
+│   └── api.js                  # Axios instance, request/response interceptors, token refresh
+├── theme/
+│   ├── colors.js               # Warm journal palette (bg: #FDF6EC, accent: #C17B4E)
+│   ├── tokens.js               # Spacing, radius, elevation
+│   └── typography.js           # Title, section, body, caption
+└── components/
+    └── PrimaryButton.js
 ```
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
+**No insights showing:**  
+User needs ≥ 3 entries in the last 7 days with valid emotion data. Check that HF_TOKEN is valid and HuggingFace API is reachable.
 
-#### 1. "Token not valid" Error
+**Emotion detection always fails:**  
+Check `HF_TOKEN` is set as an environment variable on Render. Verify the token has Read access on HuggingFace.
 
-**Problem:** JWT token expired  
-**Solution:** Logout and login again. Token refresh is automatic on next API call.
+**Token errors on protected routes:**  
+The Axios interceptor handles refresh automatically. If it fails (expired refresh token), the user is logged out. This is expected behavior after 30 days of inactivity.
 
-#### 2. Emotion Detection Fails
+**Render cold starts:**  
+UptimeRobot should prevent most cold starts. If the backend is slow on first request, wait 30–60 seconds for the instance to wake.
 
-**Problem:** HuggingFace API error  
-**Solution:** 
-- Check `HF_TOKEN` is set correctly
-- Verify token has Read access
-- Check HuggingFace API status
+**Android octagon border on EntryDetailScreen:**  
+This is a known React Native issue with `borderRadius` on certain Android versions. The fix uses explicit `overflow: hidden` on the container — already applied.
 
-#### 3. No Insights Showing
-
-**Problem:** Insufficient data  
-**Solution:** User needs minimum 3 journal entries in last 7 days
-
-#### 4. Backend Connection Failed
-
-**Problem:** Frontend can't reach backend  
-**Solution:**
-- Check `BASE_URL` in `api.js`
-- Verify backend is running
-- Check network connectivity
-
-#### 5. Database Migration Errors
-
-**Problem:** Models out of sync  
-**Solution:**
-```bash
-python manage.py makemigrations
-python manage.py migrate
-```
-
----
-
-## Contributing
-
-### Development Workflow
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
-
-### Coding Standards
-
-**Python (Backend):**
-- Follow PEP 8
-- Use type hints where applicable
-- Write docstrings for functions
-- Keep functions under 50 lines
-
-**JavaScript (Frontend):**
-- Use ES6+ syntax
-- Follow Airbnb style guide
-- Use functional components
-- Keep components under 200 lines
-
-### Commit Message Format
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Types:** feat, fix, docs, style, refactor, test, chore
-
-**Example:**
-```
-feat(insights): Add baseline comparison logic
-
-Implemented 30-day rolling average baseline calculation
-and comparative shift detection with ±20% significance threshold.
-
-Closes #42
-```
+**`--workers 1` seems too low:**  
+Intentional for Render free tier. The HuggingFace API call (not the model itself) is the bottleneck, not compute. Single worker with 2 threads handles concurrent requests adequately within free-tier memory limits.
 
 ---
 
 ## Roadmap
 
-### Version 1.1 (Q2 2026)
+### v1.1 — Post-Submission (May 2026)
 
 - [ ] Journal streak tracking
-- [ ] Weekly summary notifications
+- [ ] Weekly summary push notifications
 - [ ] Dark mode
-- [ ] Export data (JSON/CSV)
-- [ ] Entry tags/categories
+- [ ] Data export (JSON / CSV)
+- [ ] Entry tagging and categories
 
-### Version 2.0 (Q3 2026)
+### v2.0 — Q3 2026
 
-- [ ] Voice journaling
-- [ ] Photo attachments
-- [ ] Mood calendar view
-- [ ] Advanced insights (temporal patterns by day/time)
-- [ ] Customizable insight preferences
+- [ ] Voice journaling mode
+- [ ] Photo attachment to entries
+- [ ] Mood calendar heatmap
+- [ ] Temporal pattern detection (by day of week, time of day)
+- [ ] Multi-language support
 
-### Version 3.0 (Q4 2026)
+### v3.0 — Q4 2026
 
 - [ ] Predictive mood modeling
-- [ ] Context-aware recommendations
-- [ ] Multi-language support (Spanish, French, German)
+- [ ] Context-aware journaling prompts
 - [ ] Web version (React)
-- [ ] Therapist collaboration tools(not sure)
-
-### Long-term Vision
-
-- AI-powered journaling prompts
-- Community features (anonymous sharing)
-- Integration with health apps (Apple Health, Google Fit)
-- Research partnerships
-- Enterprise wellness solutions
-
----
-
-## Performance Metrics
-
-**Current Performance (v1.0):**
-
-| Metric | Target | Actual |
-|--------|--------|--------|
-| API Response Time | <500ms | ~350ms |
-| Emotion Detection | <3s | ~2.5s |
-| Insights Generation | <200ms | ~100ms |
-| App Launch Time | <2s | ~1.8s |
-| Animation FPS | 60fps | 58-60fps |
-
----
-
-## Security
-
-### Data Protection
-
-- All API communication via HTTPS
-- JWT tokens with short expiration (24h access, 7d refresh)
-- Passwords hashed with Django's PBKDF2
-- Database encrypted at rest (Render PostgreSQL)
-- No third-party data sharing
-
-### Privacy Policy
-
-- User data is private to their account
-- No analytics tracking without consent
-- Data export available on request
-- Account deletion removes all data
-
-### Compliance
-
-- GDPR-ready (data export, right to be forgotten)
-- HIPAA considerations (not certified yet)
-- SOC 2 Type II (planned for v2.0)
-
----
-
-### Community
-
-- **GitHub Issues:** Report bugs or request features
-- **Discussions:** Ask questions or share ideas
-- **Email:** support@journaling-app.com
-
-### FAQ
-
-**Q: Is this app HIPAA compliant?**  
-A: Not yet. HIPAA compliance is planned for v2.0.
-
-**Q: Can I export my data?**  
-A: Data export feature is coming in v1.1 (Q2 2026).
-
-**Q: How accurate is emotion detection?**  
-A: 75-85% accuracy based on the DistilRoBERTa model. Accuracy improves with more descriptive writing.
-
-**Q: Is my data shared with third parties?**  
-A: No. Your journal entries are private and never shared.
+- [ ] Secure data sharing with mental health professionals
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-```
-MIT License
-
-Copyright (c) 2026 Sentiment-Aware Journaling Team
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
----
-
-## Acknowledgments
-
-- **HuggingFace** for the emotion classification model
-- **Render** for hosting infrastructure
-- **React Native community** for excellent documentation
-- **Django REST Framework** for robust API framework
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
 ## Contact
 
-**Project Maintainer:** Kartik Meena  
-**Email:** kartikmeena34@gmail.com
+**Lead Developer:** Kartik Meena  
 **GitHub:** [@Kartikmeena34](https://github.com/Kartikmeena34)  
-**LinkedIn:** [Kartik Meena](https://linkedin.com/in/kartik-meena34)
+**Email:** kartikmeena34@gmail.com
+
+**Research Paper:** *"Beyond Emotion Mirroring: Design and Implementation of a Confidence-Weighted Sentiment Analytics Framework for Mobile Journaling"* — submitted to HCI International 2026
 
 ---
 
-**Last Updated:** March 5, 2026  
-**Version:** 1.0.0  
-**Status:** ✅ Production Ready
-
----
-
-**⭐ If you find this project useful, please consider starring it on GitHub!**
+**Last Updated:** April 2026 | **Version:** 1.0.0 | **Status:** ✅ Production
