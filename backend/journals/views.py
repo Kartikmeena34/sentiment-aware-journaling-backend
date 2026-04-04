@@ -1,3 +1,5 @@
+# journals/views.py
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,6 +12,9 @@ from .services.analytics_service import compute_user_analytics
 from .services.insight_service import generate_insight, generate_multiple_insights
 
 import logging
+import requests
+import os
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,11 +31,7 @@ def create_journal(request):
     if len(text) > 2000:
         raise ValidationError("Text exceeds 2000 characters")
 
-    journal = Journal.objects.create(
-        user=request.user,
-        text=text
-    )
-
+    journal = Journal.objects.create(user=request.user, text=text)
     logger.info(f"Journal {journal.id} saved (initial save)")
 
     try:
@@ -59,7 +60,7 @@ def create_journal(request):
         "confidence": journal.confidence,
         "contextual_message": contextual_message,
         "has_insights": analytics.get("data_sufficiency", False),
-        "journal_text": text,
+        "crisis_flag": analytics.get("crisis_flag", False),
     })
 
 
@@ -76,7 +77,6 @@ class UserAnalyticsView(APIView):
 @permission_classes([IsAuthenticated])
 def user_insights(request):
     logger.info(f"Insights requested by user {request.user.username}")
-
     analytics = compute_user_analytics(request.user)
     format_type = request.query_params.get("format", "multiple")
 
@@ -92,7 +92,8 @@ def user_insights(request):
         return Response({
             "insights": insights,
             "data_sufficiency": analytics.get("data_sufficiency", False),
-            "weekly_confidence": analytics.get("weekly_confidence", 0.0)
+            "weekly_confidence": analytics.get("weekly_confidence", 0.0),
+            "crisis_flag": analytics.get("crisis_flag", False),
         })
 
 
@@ -112,7 +113,6 @@ def journal_history(request):
             "dominant_emotion": j.dominant_emotion,
             "confidence": j.confidence,
             "created_at": j.created_at,
-            "has_reflection": bool(j.reflection_answer),
         }
         for j in journals
     ]
@@ -124,18 +124,117 @@ def journal_history(request):
 @permission_classes([IsAuthenticated])
 def save_reflection(request):
     journal_id = request.data.get("journal_id")
-    question = request.data.get("question")
-    answer = request.data.get("answer")
+    question = request.data.get("question", "")
+    answer = request.data.get("answer", "")
 
-    if not journal_id or not question or not answer:
-        raise ValidationError("journal_id, question and answer are required")
+    if not journal_id:
+        return Response({"saved": False, "reason": "no journal_id"})
 
     try:
         journal = Journal.objects.get(id=journal_id, user=request.user)
         journal.reflection_question = question
         journal.reflection_answer = answer
         journal.save()
-        logger.info(f"Reflection saved for journal {journal_id}")
-        return Response({"success": True})
+        return Response({"saved": True})
     except Journal.DoesNotExist:
-        raise ValidationError("Journal not found")
+        return Response({"saved": False, "reason": "not found"})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_reflection_question(request):
+    journal_text = request.data.get("journal_text", "")
+    dominant_emotion = request.data.get("dominant_emotion", "neutral")
+
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+    if not GROQ_API_KEY:
+        return Response({"question": "What felt most significant about what you wrote?"})
+
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "max_tokens": 80,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a warm, empathetic journaling companion. "
+                            "Generate exactly ONE short follow-up question based on the user's journal entry. "
+                            "The question should: acknowledge what they actually wrote about specifically, "
+                            "invite them to reflect one layer deeper, feel like it came from a caring friend not a therapist, "
+                            "be under 20 words, NOT mention the emotion label directly, NOT start with 'I'. "
+                            "Return only the question, nothing else."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f'Journal entry: "{journal_text}"\nDetected emotion: {dominant_emotion}',
+                    },
+                ],
+            },
+            timeout=10,
+        )
+        data = response.json()
+        question = data["choices"][0]["message"]["content"].strip()
+        return Response({"question": question})
+
+    except Exception as e:
+        logger.error(f"Groq question generation failed: {str(e)}")
+        return Response({"question": "What felt most significant about what you wrote?"})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_reflection_closing(request):
+    journal_text = request.data.get("journal_text", "")
+    question = request.data.get("question", "")
+    answer = request.data.get("answer", "")
+
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+    if not GROQ_API_KEY:
+        return Response({"closing": "Thank you for going deeper. That took courage."})
+
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "max_tokens": 60,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a warm, empathetic journaling companion. "
+                            "The user answered a reflection question. Generate ONE short warm closing response that: "
+                            "acknowledges what they said warmly and specifically, does NOT ask another question, "
+                            "feels like a gentle human close, is under 20 words. "
+                            "Return only the response, nothing else."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f'Original journal: "{journal_text}"\nQuestion: "{question}"\nAnswer: "{answer}"',
+                    },
+                ],
+            },
+            timeout=10,
+        )
+        data = response.json()
+        closing = data["choices"][0]["message"]["content"].strip()
+        return Response({"closing": closing})
+
+    except Exception as e:
+        logger.error(f"Groq closing generation failed: {str(e)}")
+        return Response({"closing": "Thank you for going deeper. That took courage."})
