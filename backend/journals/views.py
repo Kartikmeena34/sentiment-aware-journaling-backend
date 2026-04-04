@@ -1,5 +1,3 @@
-# journals/views.py
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -14,6 +12,7 @@ from .services.insight_service import generate_insight, generate_multiple_insigh
 import logging
 import requests
 import os
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -124,16 +123,17 @@ def journal_history(request):
 @permission_classes([IsAuthenticated])
 def save_reflection(request):
     journal_id = request.data.get("journal_id")
-    question = request.data.get("question", "")
-    answer = request.data.get("answer", "")
+    conversation = request.data.get("conversation", [])
 
     if not journal_id:
         return Response({"saved": False, "reason": "no journal_id"})
 
     try:
         journal = Journal.objects.get(id=journal_id, user=request.user)
-        journal.reflection_question = question
-        journal.reflection_answer = answer
+        # Save full conversation as JSON string in reflection_answer
+        if conversation:
+            journal.reflection_question = conversation[0].get("content", "") if conversation else ""
+            journal.reflection_answer = json.dumps(conversation)
         journal.save()
         return Response({"saved": True})
     except Journal.DoesNotExist:
@@ -142,14 +142,64 @@ def save_reflection(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def generate_reflection_question(request):
+def reflect_chat(request):
+    """
+    Multi-turn reflection chat endpoint.
+    Receives full conversation history each turn, returns next AI message.
+    """
     journal_text = request.data.get("journal_text", "")
     dominant_emotion = request.data.get("dominant_emotion", "neutral")
+    # conversation_history: list of {role: "user"/"assistant", content: "..."}
+    conversation_history = request.data.get("conversation_history", [])
 
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
+    FALLBACK_QUESTIONS = [
+        "What felt most significant about what you wrote?",
+        "What do you think is underneath that feeling?",
+        "Has this come up for you before?",
+        "What would you want to remember about this moment?",
+        "Is there something you haven't let yourself fully think about yet?",
+    ]
+
     if not GROQ_API_KEY:
-        return Response({"question": "What felt most significant about what you wrote?"})
+        # Rotate through fallback questions based on conversation length
+        idx = len(conversation_history) // 2 % len(FALLBACK_QUESTIONS)
+        return Response({"reply": FALLBACK_QUESTIONS[idx]})
+
+    system_prompt = f"""You are a warm, empathetic journaling companion having a genuine conversation with someone who just wrote a journal entry.
+
+The user's journal entry:
+\"\"\"{journal_text}\"\"\"
+Detected emotional tone: {dominant_emotion}
+
+Your role:
+- Have a real, flowing conversation — not a questionnaire
+- Ask one thoughtful follow-up at a time, naturally woven into your response
+- Acknowledge what the user says before asking the next thing
+- Go deeper gradually — don't rush to conclusions
+- Sound like a caring, curious friend — not a therapist or a bot
+- Keep responses concise: 1-3 sentences maximum
+- After 6+ exchanges, you can offer a warm, grounding closing thought instead of another question — but only if it feels natural
+- Never say "I'm an AI" or refer to yourself as an assistant
+- Never use bullet points or lists"""
+
+    messages = [{"role": "system", "content": system_prompt}]
+
+    # If no history yet, generate the opening question
+    if not conversation_history:
+        messages.append({
+            "role": "user",
+            "content": f"I just wrote this journal entry: \"{journal_text}\""
+        })
+    else:
+        # Build conversation from history
+        # First message is always the journal entry context
+        messages.append({
+            "role": "user",
+            "content": f"I just wrote this journal entry: \"{journal_text}\""
+        })
+        messages.extend(conversation_history)
 
     try:
         response = requests.post(
@@ -160,81 +210,17 @@ def generate_reflection_question(request):
             },
             json={
                 "model": "llama-3.3-70b-versatile",
-                "max_tokens": 80,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a warm, empathetic journaling companion. "
-                            "Generate exactly ONE short follow-up question based on the user's journal entry. "
-                            "The question should: acknowledge what they actually wrote about specifically, "
-                            "invite them to reflect one layer deeper, feel like it came from a caring friend not a therapist, "
-                            "be under 20 words, NOT mention the emotion label directly, NOT start with 'I'. "
-                            "Return only the question, nothing else."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": f'Journal entry: "{journal_text}"\nDetected emotion: {dominant_emotion}',
-                    },
-                ],
+                "max_tokens": 200,
+                "temperature": 0.85,
+                "messages": messages,
             },
-            timeout=10,
+            timeout=15,
         )
         data = response.json()
-        question = data["choices"][0]["message"]["content"].strip()
-        return Response({"question": question})
+        reply = data["choices"][0]["message"]["content"].strip()
+        return Response({"reply": reply})
 
     except Exception as e:
-        logger.error(f"Groq question generation failed: {str(e)}")
-        return Response({"question": "What felt most significant about what you wrote?"})
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def generate_reflection_closing(request):
-    journal_text = request.data.get("journal_text", "")
-    question = request.data.get("question", "")
-    answer = request.data.get("answer", "")
-
-    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-
-    if not GROQ_API_KEY:
-        return Response({"closing": "Thank you for going deeper. That took courage."})
-
-    try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "max_tokens": 60,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a warm, empathetic journaling companion. "
-                            "The user answered a reflection question. Generate ONE short warm closing response that: "
-                            "acknowledges what they said warmly and specifically, does NOT ask another question, "
-                            "feels like a gentle human close, is under 20 words. "
-                            "Return only the response, nothing else."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": f'Original journal: "{journal_text}"\nQuestion: "{question}"\nAnswer: "{answer}"',
-                    },
-                ],
-            },
-            timeout=10,
-        )
-        data = response.json()
-        closing = data["choices"][0]["message"]["content"].strip()
-        return Response({"closing": closing})
-
-    except Exception as e:
-        logger.error(f"Groq closing generation failed: {str(e)}")
-        return Response({"closing": "Thank you for going deeper. That took courage."})
+        logger.error(f"Groq chat failed: {str(e)}")
+        idx = len(conversation_history) // 2 % len(FALLBACK_QUESTIONS)
+        return Response({"reply": FALLBACK_QUESTIONS[idx]})
