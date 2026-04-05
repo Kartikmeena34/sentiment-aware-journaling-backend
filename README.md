@@ -1,4 +1,4 @@
-# MoodScript
+# Serein
 
 **Sentiment-Aware Journaling Application — v1.0**
 
@@ -30,9 +30,9 @@ A mobile-first emotional well-being platform that transforms journal entries int
 
 ## Overview
 
-MoodScript helps users gain meaningful insight into their emotional patterns through AI-powered journaling — going beyond surface-level emotion labeling into comparative, confidence-qualified analytics.
+Serein helps users gain meaningful insight into their emotional patterns through AI-powered journaling — going beyond surface-level emotion labeling into comparative, confidence-qualified analytics.
 
-Unlike traditional emotion detection apps that mirror user input back ("You're feeling happy"), MoodScript surfaces patterns that users could not see themselves: baseline shifts, entropy trends, and emotional arc detection across journaling sessions.
+Unlike traditional emotion detection apps that mirror user input back ("You're feeling happy"), Serein surfaces patterns that users could not see themselves: baseline shifts, entropy trends, and emotional arc detection across journaling sessions.
 
 ### The Core Problem
 
@@ -139,7 +139,7 @@ This application accompanies an academic paper submitted to **HCI International 
 
 ```
 ┌─────────────────────┐
-│      MoodScript     │
+│      Serein     │
 │    (React Native)   │
 └────────┬────────────┘
          │ HTTPS/REST
@@ -281,7 +281,7 @@ Create `.env`:
 ```env
 SECRET_KEY=your-django-secret-key
 DEBUG=True
-DATABASE_URL=postgresql://user:password@localhost:5432/moodscript_db
+DATABASE_URL=postgresql://user:password@localhost:5432/Serein_db
 HF_TOKEN=your-huggingface-token
 ANTHROPIC_API_KEY=your-anthropic-key
 ```
